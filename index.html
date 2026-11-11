@@ -190,7 +190,7 @@
   <!-- Calculator -->
   <section id="calcView" class="hidden">
     <h1>LAD calculator</h1>
-    <p class="lede">Enter your purchase price, the VP date originally promised, and the actual or estimated VP date.</p>
+    <p class="lede">Enter your purchase price, the date you signed your SPA, and the actual or delayed VP date.</p>
 
     <form class="card" id="calcCard" novalidate>
       <h2>Unit details</h2>
@@ -201,12 +201,12 @@
           <div class="hint">Use the full SPA price, not the price after rebates or discounts.</div>
         </div>
         <div>
-          <label for="expectedDate">Original expected VP date</label>
-          <input type="date" id="expectedDate">
-          <div class="hint">The vacant possession date the developer originally promised.</div>
+          <label for="spaDate">SPA signed date</label>
+          <input type="date" id="spaDate">
+          <div class="hint">VP is due 36 months after this date. LAD starts after that.</div>
         </div>
         <div>
-          <label for="actualDate">Actual / Estimated Delayed VP Date</label>
+          <label for="actualDate">Actual / Delayed VP date</label>
           <input type="date" id="actualDate">
           <div class="hint">The date you received (or expect to receive) your keys.</div>
         </div>
@@ -227,6 +227,7 @@
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBjhkxmanRrE3I5WdThv_cZuJuv5HBvCTvbyu_bb_Mp7z71NNSO4nqjIs71Sj8Ld4T/exec';
 const REQUIRE_SIGNIN = false;        // set to true to show the sign in page again
 const LAD_RATE = 0.10;               // 10% per annum
+const VP_PERIOD_MONTHS = 36;         // VP due 36 months after SPA signed
 
 /* ===== State ===== */
 let client = null;
@@ -253,13 +254,19 @@ function todayUTC() {
   const t = new Date();
   return new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
 }
+function addMonths(d, months) {
+  const y = d.getUTCFullYear(), m = d.getUTCMonth() + months, day = d.getUTCDate();
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(day, lastDay)));
+}
 const daysBetween = (a, b) => Math.round((b - a) / 86400000);
 
-function computeLAD(price, expected, actual) {
-  const daysLate = Math.max(0, daysBetween(expected, actual));
+function computeLAD(price, spa, actual) {
+  const due = addMonths(spa, VP_PERIOD_MONTHS);
+  const daysLate = Math.max(0, daysBetween(due, actual));
   const daily = price * LAD_RATE / 365;
   const total = price * LAD_RATE * daysLate / 365;
-  return { daysLate, daily, total };
+  return { due, daysLate, daily, total };
 }
 
 function postToSheet(payload) {
@@ -330,25 +337,27 @@ $('calcCard').addEventListener('submit', e => {
   e.preventDefault();
   const err = $('calcError');
   const price = parseFloat($('price').value.replace(/[^0-9.]/g, ''));
-  const expected = parseDate($('expectedDate').value);
+  const spa = parseDate($('spaDate').value);
   const actual = parseDate($('actualDate').value);
   const today = todayUTC();
 
   if (!price || price <= 0) return err.textContent = 'Please enter your purchase price.';
-  if (!expected) return err.textContent = 'Please enter the original expected VP date.';
-  if (!actual) return err.textContent = 'Please enter the actual or estimated VP date.';
+  if (!spa) return err.textContent = 'Please enter your SPA signed date.';
+  if (spa > today) return err.textContent = 'The SPA signed date cannot be in the future.';
+  if (!actual) return err.textContent = 'Please enter the actual or delayed VP date.';
+  if (actual < spa) return err.textContent = 'The VP date cannot be before the SPA signed date.';
   err.textContent = '';
 
-  const r = computeLAD(price, expected, actual);
+  const r = computeLAD(price, spa, actual);
   const estimated = actual > today;
-  render({ price, expected, actual, estimated, r });
+  render({ price, spa, actual, estimated, r });
 
   const c = client || {};
   postToSheet({
     action: 'calc',
     clientId: c.clientId || '', name: c.name || '', email: c.email || '', phone: c.phone || '',
     purchasePrice: price,
-    expectedVpDate: iso(expected), actualVpDate: iso(actual), estimated,
+    spaDate: iso(spa), vpDueDate: iso(r.due), actualVpDate: iso(actual), estimated,
     daysLate: r.daysLate,
     dailyLAD: Math.round(r.daily * 100) / 100,
     totalLAD: Math.round(r.total * 100) / 100
@@ -361,7 +370,7 @@ function render(o) {
   let html = '';
 
   if (r.daysLate === 0) {
-    html += `<div class="ontime-note"><strong>No LAD.</strong> The VP date is on or before the original expected VP date (${fmtDate(o.expected)}), so no late delivery damages apply.</div>`;
+    html += `<div class="ontime-note"><strong>No LAD.</strong> VP is due by ${fmtDate(r.due)} (36 months after your SPA was signed). Your VP date of ${fmtDate(o.actual)} is on time, so no late delivery damages apply.</div>`;
   } else {
     html += `<div class="hero">
       <div class="label">${o.estimated ? 'Estimated LAD' : 'Total LAD owed'}${o.estimated ? '<span class="pill">Estimate</span>' : ''}</div>
@@ -369,26 +378,29 @@ function render(o) {
       <div class="sub">${fmtNum(r.daysLate)} days late</div>
     </div>
     <div class="stats">
-      <div class="stat"><div class="k">Original VP date</div><div class="v">${fmtDate(o.expected)}</div></div>
-      <div class="stat"><div class="k">${o.estimated ? 'Estimated VP date' : 'Actual VP date'}</div><div class="v">${fmtDate(o.actual)}</div></div>
-      <div class="stat"><div class="k">Days late</div><div class="v">${fmtNum(r.daysLate)}</div></div>
+      <div class="stat"><div class="k">SPA signed</div><div class="v">${fmtDate(o.spa)}</div></div>
+      <div class="stat"><div class="k">VP due (SPA + 36 months)</div><div class="v">${fmtDate(r.due)}</div></div>
+      <div class="stat"><div class="k">Actual / Delayed VP</div><div class="v">${fmtDate(o.actual)}</div></div>
       <div class="stat"><div class="k">LAD per day</div><div class="v">${fmtRM(r.daily)}</div></div>
     </div>`;
-
-    html += `<div class="card timeline"><h2>Timeline</h2>
-      <div class="track"><div class="late" style="left:0;width:100%"></div></div>
-      <div class="marks">
-        <div><b>Original expected VP</b>${fmtDate(o.expected)}</div>
-        <div style="text-align:right"><b>Actual / Estimated Delayed VP</b>${fmtDate(o.actual)}</div>
-      </div>
-    </div>`;
   }
+
+  const span = Math.max(1, daysBetween(o.spa, r.daysLate ? o.actual : r.due));
+  const onPct = Math.min(100, daysBetween(o.spa, r.due) / span * 100);
+  html += `<div class="card timeline"><h2>Timeline</h2>
+    <div class="track"><div class="ontime" style="width:${onPct}%"></div>${r.daysLate ? `<div class="late" style="left:${onPct}%;width:${100 - onPct}%"></div>` : ''}</div>
+    <div class="marks">
+      <div><b>SPA signed</b>${fmtDate(o.spa)}</div>
+      <div style="text-align:center"><b>VP due</b>${fmtDate(r.due)}</div>
+      ${r.daysLate ? `<div style="text-align:right"><b>Actual / Delayed VP</b>${fmtDate(o.actual)}</div>` : ''}
+    </div>
+  </div>`;
 
   html += `<div class="card"><h2>How this is calculated</h2>
     <table class="calc">
       <tr><td>Purchase price</td><td>${fmtRM(o.price)}</td></tr>
       <tr><td>LAD rate</td><td>10% per year</td></tr>
-      <tr><td>Days late</td><td>${fmtNum(r.daysLate)}</td></tr>
+      <tr><td>Days late (from VP due date to actual / delayed VP)</td><td>${fmtNum(r.daysLate)}</td></tr>
       <tr><td><strong>Total LAD</strong> = price × 10% × days late ÷ 365</td><td><strong>${fmtRM(r.total)}</strong></td></tr>
     </table>
     <div class="actions"><button class="btn ghost" type="button" onclick="window.print()">Print or save as PDF</button></div>
