@@ -190,41 +190,25 @@
   <!-- Calculator -->
   <section id="calcView" class="hidden">
     <h1>LAD calculator</h1>
-    <p class="lede">Enter your unit details. If your unit has not been handed over yet, leave the vacant possession date empty and we will calculate up to today.</p>
+    <p class="lede">Enter your purchase price, the VP date originally promised, and the actual or estimated VP date.</p>
 
     <form class="card" id="calcCard" novalidate>
       <h2>Unit details</h2>
       <div class="grid">
         <div class="full">
-          <label for="project">Project name and unit <span style="font-weight:400;color:var(--grey-500)">(optional)</span></label>
-          <input type="text" id="project" placeholder="e.g. Residensi Seri Mutiara, A-12-03">
-        </div>
-        <div class="full">
           <label for="price">Purchase price (as stated in your SPA)</label>
           <div class="money"><span>RM</span><input type="text" id="price" inputmode="decimal" placeholder="500,000"></div>
           <div class="hint">Use the full SPA price, not the price after rebates or discounts.</div>
         </div>
-        <div class="full">
-          <label>Property type</label>
-          <div class="seg">
-            <label><input type="radio" name="ptype" value="strata" checked><div><strong>Strata</strong><span>Condo, apartment, serviced residence. Handover within 36 months.</span></div></label>
-            <label><input type="radio" name="ptype" value="landed"><div><strong>Landed</strong><span>Terrace, semi D, bungalow with individual title. Handover within 24 months.</span></div></label>
-          </div>
+        <div>
+          <label for="expectedDate">Original expected VP date</label>
+          <input type="date" id="expectedDate">
+          <div class="hint">The vacant possession date the developer originally promised.</div>
         </div>
         <div>
-          <label for="bookingDate">Booking fee paid on</label>
-          <input type="date" id="bookingDate">
-          <div class="hint">The handover period starts from the date you paid the booking fee, not the SPA date.</div>
-        </div>
-        <div>
-          <label for="vpDate">Vacant possession received on</label>
-          <input type="date" id="vpDate">
-          <div class="hint">Leave empty if you have not received your keys yet.</div>
-        </div>
-        <div>
-          <label for="spaDate">SPA signed on <span style="font-weight:400;color:var(--grey-500)">(optional)</span></label>
-          <input type="date" id="spaDate">
-          <div class="hint">Only used to show how much more you are owed by counting from the booking fee date.</div>
+          <label for="actualDate">Actual or estimated VP date</label>
+          <input type="date" id="actualDate">
+          <div class="hint">The date you received (or expect to receive) your keys.</div>
         </div>
       </div>
       <div class="error" id="calcError"></div>
@@ -240,9 +224,9 @@
 /* ===== CONFIG =====
    Paste your Google Apps Script web app URL below (ends with /exec).
    Leave empty to run without saving to Google Sheets. */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyKEuj3gtiLocQpdwka-n0psDoAW1M00qA86ZYeFwqWOgAKN-kkp5anYvVA5GYtikS_/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBjhkxmanRrE3I5WdThv_cZuJuv5HBvCTvbyu_bb_Mp7z71NNSO4nqjIs71Sj8Ld4T/exec';
+const REQUIRE_SIGNIN = false;        // set to true to show the sign in page again
 const LAD_RATE = 0.10;               // 10% per annum
-const PERIOD_MONTHS = { strata: 36, landed: 24 };
 
 /* ===== State ===== */
 let client = null;
@@ -269,19 +253,13 @@ function todayUTC() {
   const t = new Date();
   return new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
 }
-function addMonths(d, months) {
-  const y = d.getUTCFullYear(), m = d.getUTCMonth() + months, day = d.getUTCDate();
-  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-  return new Date(Date.UTC(y, m, Math.min(day, lastDay)));
-}
 const daysBetween = (a, b) => Math.round((b - a) / 86400000);
 
-function computeLAD(price, startDate, months, endDate) {
-  const due = addMonths(startDate, months);
-  const daysLate = Math.max(0, daysBetween(due, endDate));
+function computeLAD(price, expected, actual) {
+  const daysLate = Math.max(0, daysBetween(expected, actual));
   const daily = price * LAD_RATE / 365;
   const total = price * LAD_RATE * daysLate / 365;
-  return { due, daysLate, daily, total };
+  return { daysLate, daily, total };
 }
 
 function postToSheet(payload) {
@@ -300,8 +278,10 @@ function postToSheet(payload) {
 function showCalc() {
   $('signinView').classList.add('hidden');
   $('calcView').classList.remove('hidden');
-  $('who').classList.remove('hidden');
-  $('whoText').textContent = client.name + ' · ' + client.clientId;
+  if (client) {
+    $('who').classList.remove('hidden');
+    $('whoText').textContent = client.name + ' · ' + client.clientId;
+  }
 }
 function showSignin() {
   $('calcView').classList.add('hidden');
@@ -350,98 +330,69 @@ $('calcCard').addEventListener('submit', e => {
   e.preventDefault();
   const err = $('calcError');
   const price = parseFloat($('price').value.replace(/[^0-9.]/g, ''));
-  const ptype = document.querySelector('input[name=ptype]:checked').value;
-  const months = PERIOD_MONTHS[ptype];
-  const booking = parseDate($('bookingDate').value);
-  const vpInput = parseDate($('vpDate').value);
-  const spa = parseDate($('spaDate').value);
+  const expected = parseDate($('expectedDate').value);
+  const actual = parseDate($('actualDate').value);
   const today = todayUTC();
-  const end = vpInput || today;
-  const project = $('project').value.trim();
 
   if (!price || price <= 0) return err.textContent = 'Please enter your purchase price.';
-  if (!booking) return err.textContent = 'Please enter the date you paid the booking fee.';
-  if (booking > today) return err.textContent = 'The booking fee date cannot be in the future.';
-  if (vpInput && vpInput < booking) return err.textContent = 'The vacant possession date cannot be before the booking fee date.';
-  if (vpInput && vpInput > today) return err.textContent = 'The vacant possession date cannot be in the future. Leave it empty if you have not received your keys.';
-  if (spa && spa < booking) return err.textContent = 'The SPA date is usually after the booking fee date. Please check it.';
+  if (!expected) return err.textContent = 'Please enter the original expected VP date.';
+  if (!actual) return err.textContent = 'Please enter the actual or estimated VP date.';
   err.textContent = '';
 
-  const r = computeLAD(price, booking, months, end);
-  const rSpa = spa ? computeLAD(price, spa, months, end) : null;
-  render({ price, ptype, months, booking, end, ongoing: !vpInput, spa, r, rSpa, project });
+  const r = computeLAD(price, expected, actual);
+  const estimated = actual > today;
+  render({ price, expected, actual, estimated, r });
 
+  const c = client || {};
   postToSheet({
     action: 'calc',
-    clientId: client.clientId, name: client.name, email: client.email, phone: client.phone,
-    project, purchasePrice: price,
-    propertyType: ptype, periodMonths: months,
-    bookingDate: iso(booking), spaDate: spa ? iso(spa) : '',
-    vpDate: vpInput ? iso(vpInput) : '', vpReceived: !!vpInput,
-    dueDate: iso(r.due), daysLate: r.daysLate,
+    clientId: c.clientId || '', name: c.name || '', email: c.email || '', phone: c.phone || '',
+    purchasePrice: price,
+    expectedVpDate: iso(expected), actualVpDate: iso(actual), estimated,
+    daysLate: r.daysLate,
     dailyLAD: Math.round(r.daily * 100) / 100,
-    totalLAD: Math.round(r.total * 100) / 100,
-    totalLADFromSPA: rSpa ? Math.round(rSpa.total * 100) / 100 : ''
+    totalLAD: Math.round(r.total * 100) / 100
   });
 });
 
 function render(o) {
-  const { r, rSpa } = o;
+  const { r } = o;
   const el = $('results');
-  const typeLabel = o.ptype === 'strata' ? 'Strata (36 months)' : 'Landed (24 months)';
-  const endLabel = o.ongoing ? 'Today' : 'Keys received';
   let html = '';
 
   if (r.daysLate === 0) {
-    const left = daysBetween(o.end, r.due);
-    html += `<div class="ontime-note"><strong>No LAD yet.</strong> ${
-      o.ongoing
-        ? `Your developer has until <b style="font-family:var(--mono)">${fmtDate(r.due)}</b> to hand over your unit (${fmtNum(left)} days from today). If it is late, LAD starts at <b style="font-family:var(--mono)">${fmtRM(r.daily)}</b> per day.`
-        : `Your unit was handed over on time. The deadline was ${fmtDate(r.due)}.`
-    }</div>`;
+    html += `<div class="ontime-note"><strong>No LAD.</strong> The VP date is on or before the original expected VP date (${fmtDate(o.expected)}), so no late delivery damages apply.</div>`;
   } else {
     html += `<div class="hero">
-      <div class="label">${o.ongoing ? 'LAD owed so far' : 'Total LAD owed'}${o.ongoing ? '<span class="pill">Still growing</span>' : ''}</div>
+      <div class="label">${o.estimated ? 'Estimated LAD' : 'Total LAD owed'}${o.estimated ? '<span class="pill">Estimate</span>' : ''}</div>
       <div class="value">${fmtRM(r.total)}</div>
-      <div class="sub">${fmtNum(r.daysLate)} days late${o.project ? ' · ' + escapeHtml(o.project) : ''}</div>
+      <div class="sub">${fmtNum(r.daysLate)} days late</div>
     </div>
     <div class="stats">
-      <div class="stat"><div class="k">Handover deadline</div><div class="v">${fmtDate(r.due)}</div></div>
+      <div class="stat"><div class="k">Original VP date</div><div class="v">${fmtDate(o.expected)}</div></div>
+      <div class="stat"><div class="k">${o.estimated ? 'Estimated VP date' : 'Actual VP date'}</div><div class="v">${fmtDate(o.actual)}</div></div>
       <div class="stat"><div class="k">Days late</div><div class="v">${fmtNum(r.daysLate)}</div></div>
       <div class="stat"><div class="k">LAD per day</div><div class="v">${fmtRM(r.daily)}</div></div>
-      <div class="stat"><div class="k">${o.ongoing ? 'Per month (30 days)' : 'Purchase price'}</div><div class="v">${o.ongoing ? fmtRM(r.daily * 30) : fmtRM(o.price)}</div></div>
+    </div>`;
+
+    html += `<div class="card timeline"><h2>Timeline</h2>
+      <div class="track"><div class="late" style="left:0;width:100%"></div></div>
+      <div class="marks">
+        <div><b>Original expected VP</b>${fmtDate(o.expected)}</div>
+        <div style="text-align:right"><b>${o.estimated ? 'Estimated VP' : 'Actual VP'}</b>${fmtDate(o.actual)}</div>
+      </div>
     </div>`;
   }
 
-  // Timeline
-  const totalSpan = Math.max(1, daysBetween(o.booking, r.daysLate ? o.end : r.due));
-  const onPct = Math.min(100, daysBetween(o.booking, r.due) / totalSpan * 100);
-  html += `<div class="card timeline"><h2>Timeline</h2>
-    <div class="track"><div class="ontime" style="width:${onPct}%"></div>${r.daysLate ? `<div class="late" style="left:${onPct}%;width:${100 - onPct}%"></div>` : ''}</div>
-    <div class="marks">
-      <div><b>Booking fee</b>${fmtDate(o.booking)}</div>
-      <div style="text-align:center"><b>Deadline</b>${fmtDate(r.due)}</div>
-      ${r.daysLate ? `<div style="text-align:right"><b>${endLabel}</b>${fmtDate(o.end)}</div>` : ''}
-    </div>
-  </div>`;
-
-  // Breakdown
   html += `<div class="card"><h2>How this is calculated</h2>
     <table class="calc">
       <tr><td>Purchase price</td><td>${fmtRM(o.price)}</td></tr>
       <tr><td>LAD rate</td><td>10% per year</td></tr>
-      <tr><td>Property type</td><td>${typeLabel}</td></tr>
-      <tr><td>Handover deadline (booking fee date + ${o.months} months)</td><td>${fmtDate(r.due)}</td></tr>
-      <tr><td>Counted up to (${endLabel.toLowerCase()})</td><td>${fmtDate(o.end)}</td></tr>
       <tr><td>Days late</td><td>${fmtNum(r.daysLate)}</td></tr>
       <tr><td><strong>Total LAD</strong> = price × 10% × days late ÷ 365</td><td><strong>${fmtRM(r.total)}</strong></td></tr>
-    </table>`;
-
-  if (rSpa && r.total > rSpa.total) {
-    html += `<div class="compare">If the developer counts from your SPA date (${fmtDate(o.spa)}) instead, you would only get <b>${fmtRM(rSpa.total)}</b>. Counting from the booking fee date gives you <b>${fmtRM(r.total - rSpa.total)}</b> more. The Federal Court ruled in <em>PJD Regency Sdn Bhd v Tribunal Tuntutan Pembeli Rumah</em> (2021) that the period starts from the booking fee date.</div>`;
-  }
-  html += `<div class="actions"><button class="btn ghost" type="button" onclick="window.print()">Print or save as PDF</button></div>
-    <p class="disclaimer">This is an estimate for reference only and is not legal advice. It assumes a standard Schedule G or Schedule H sale and purchase agreement under the Housing Development (Control and Licensing) Regulations 1989. Your actual claim may differ depending on your SPA terms. Please speak to Far Capital or a lawyer before making a claim.</p>
+    </table>
+    <div class="actions"><button class="btn ghost" type="button" onclick="window.print()">Print or save as PDF</button></div>
+    <p class="disclaimer">This is an estimate for reference only and is not legal advice. Your actual claim may differ depending on your SPA terms. Please speak to Far Capital or a lawyer before making a claim.</p>
   </div>`;
 
   el.innerHTML = html;
@@ -454,8 +405,13 @@ function escapeHtml(s) {
 }
 
 /* ===== Init ===== */
-client = loadClient();
-if (client && client.clientId && client.name) showCalc();
+if (!REQUIRE_SIGNIN) {
+  client = null;
+  showCalc();
+} else {
+  client = loadClient();
+  if (client && client.clientId && client.name) showCalc();
+}
 </script>
 </body>
 </html>
