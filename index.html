@@ -203,7 +203,7 @@
         <div>
           <label for="spaDate">SPA signed date</label>
           <input type="date" id="spaDate">
-          <div class="hint">VP is due 36 months after this date. LAD starts after that.</div>
+          <div class="hint">VP is due <span class="vpMonths">48</span> months after this date. LAD starts after that.</div>
         </div>
         <div>
           <label for="actualDate">Actual / Delayed VP date</label>
@@ -227,7 +227,7 @@
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBjhkxmanRrE3I5WdThv_cZuJuv5HBvCTvbyu_bb_Mp7z71NNSO4nqjIs71Sj8Ld4T/exec';
 const REQUIRE_SIGNIN = false;        // set to true to show the sign in page again
 const LAD_RATE = 0.10;               // 10% per annum
-const VP_PERIOD_MONTHS = 36;         // VP due 36 months after SPA signed
+const VP_PERIOD_MONTHS = 48;         // VP due this many months after SPA signed (change here only)
 
 /* ===== State ===== */
 let client = null;
@@ -370,7 +370,7 @@ function render(o) {
   let html = '';
 
   if (r.daysLate === 0) {
-    html += `<div class="ontime-note"><strong>No LAD.</strong> VP is due by ${fmtDate(r.due)} (36 months after your SPA was signed). Your VP date of ${fmtDate(o.actual)} is on time, so no late delivery damages apply.</div>`;
+    html += `<div class="ontime-note"><strong>No LAD.</strong> VP is due by ${fmtDate(r.due)} (${VP_PERIOD_MONTHS} months after your SPA was signed). Your VP date of ${fmtDate(o.actual)} is on time, so no late delivery damages apply.</div>`;
   } else {
     html += `<div class="hero">
       <div class="label">${o.estimated ? 'Estimated LAD' : 'Total LAD owed'}${o.estimated ? '<span class="pill">Estimate</span>' : ''}</div>
@@ -379,7 +379,7 @@ function render(o) {
     </div>
     <div class="stats">
       <div class="stat"><div class="k">SPA signed</div><div class="v">${fmtDate(o.spa)}</div></div>
-      <div class="stat"><div class="k">VP due (SPA + 36 months)</div><div class="v">${fmtDate(r.due)}</div></div>
+      <div class="stat"><div class="k">VP due (SPA + ${VP_PERIOD_MONTHS} months)</div><div class="v">${fmtDate(r.due)}</div></div>
       <div class="stat"><div class="k">Actual / Delayed VP</div><div class="v">${fmtDate(o.actual)}</div></div>
       <div class="stat"><div class="k">LAD per day</div><div class="v">${fmtRM(r.daily)}</div></div>
     </div>`;
@@ -417,6 +417,7 @@ function escapeHtml(s) {
 }
 
 /* ===== Init ===== */
+document.querySelectorAll('.vpMonths').forEach(el => el.textContent = VP_PERIOD_MONTHS);
 if (!REQUIRE_SIGNIN) {
   client = null;
   showCalc();
