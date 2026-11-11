@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAD Calculator | Far Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --maroon: #7A1F2B;
+    --maroon-dark: #5E1720;
+    --black: #111111;
+    --white: #FFFFFF;
+    --gold: #C9A227;
+    --grey-50: #F7F6F4;
+    --grey-200: #E4E1DC;
+    --grey-500: #7A7570;
+    --red: #B42318;
+    --font: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --mono: 'Courier Prime', ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    color: var(--black);
+    background: var(--grey-50);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    background: var(--black);
+    color: var(--white);
+    border-bottom: 3px solid var(--gold);
+  }
+  .bar {
+    max-width: 880px; margin: 0 auto; padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 0.02em; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 6px; background: var(--maroon);
+    display: grid; place-items: center; color: var(--gold); font-weight: 700; font-size: 14px;
+  }
+  .brand small { display: block; font-weight: 500; color: #BDB7AE; font-size: 12px; letter-spacing: 0; }
+  .who { font-size: 13px; color: #D9D4CC; text-align: right; }
+  .who button {
+    background: none; border: 1px solid #555; color: #D9D4CC; border-radius: 6px;
+    padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; margin-left: 8px;
+  }
+  .who button:hover { border-color: var(--gold); color: var(--gold); }
+  main { max-width: 880px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .lede { color: var(--grey-500); margin: 0 0 24px; font-size: 15px; line-height: 1.55; }
+  .card {
+    background: var(--white); border: 1px solid var(--grey-200); border-radius: 12px;
+    padding: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .card + .card { margin-top: 18px; }
+  .card h2 { font-size: 16px; margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .full { grid-column: 1 / -1; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .hint { font-size: 12px; color: var(--grey-500); margin-top: 5px; line-height: 1.45; }
+  input[type=text], input[type=email], input[type=tel], input[type=date], select {
+    width: 100%; padding: 11px 12px; border: 1px solid var(--grey-200); border-radius: 8px;
+    font: inherit; font-size: 15px; background: var(--white); color: var(--black);
+  }
+  input:focus, select:focus { outline: 2px solid var(--gold); outline-offset: 0; border-color: var(--gold); }
+  .money { position: relative; }
+  .money span {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-family: var(--mono); color: var(--grey-500); font-size: 15px;
+  }
+  .money input { padding-left: 44px; font-family: var(--mono); }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .seg label {
+    border: 1px solid var(--grey-200); border-radius: 8px; padding: 12px; cursor: pointer;
+    font-weight: 500; margin: 0; display: flex; gap: 10px; align-items: flex-start;
+  }
+  .seg label strong { display: block; font-size: 14px; }
+  .seg label span { font-size: 12px; color: var(--grey-500); }
+  .seg input { margin-top: 3px; accent-color: var(--maroon); }
+  .seg label:has(input:checked) { border-color: var(--maroon); background: #FBF5F6; }
+  .check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; font-size: 13px; line-height: 1.5; }
+  .check input { margin-top: 3px; accent-color: var(--maroon); }
+  .btn {
+    background: var(--maroon); color: var(--white); border: none; border-radius: 8px;
+    padding: 13px 22px; font: inherit; font-weight: 600; font-size: 15px; cursor: pointer;
+  }
+  .btn:hover { background: var(--maroon-dark); }
+  .btn.ghost { background: var(--white); color: var(--maroon); border: 1px solid var(--maroon); }
+  .btn.ghost:hover { background: #FBF5F6; }
+  .actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .error { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 1em; }
+  .hidden { display: none !important; }
+
+  /* Results */
+  .hero {
+    background: var(--black); color: var(--white); border-radius: 12px; padding: 24px;
+    border-left: 5px solid var(--gold);
+  }
+  .hero .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #BDB7AE; }
+  .hero .value { font-family: var(--mono); font-size: 40px; font-weight: 700; color: var(--gold); margin: 6px 0 4px; }
+  .hero .sub { font-size: 14px; color: #D9D4CC; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+  .stat { background: var(--white); border: 1px solid var(--grey-200); border-radius: 10px; padding: 14px; }
+  .stat .k { font-size: 12px; color: var(--grey-500); }
+  .stat .v { font-family: var(--mono); font-size: 18px; font-weight: 700; margin-top: 4px; }
+  .timeline { margin-top: 18px; }
+  .track { position: relative; height: 10px; border-radius: 6px; background: var(--grey-200); overflow: hidden; }
+  .track .ontime { position: absolute; left: 0; top: 0; bottom: 0; background: var(--maroon); }
+  .track .late { position: absolute; top: 0; bottom: 0; background: var(--gold); }
+  .marks { display: flex; justify-content: space-between; font-size: 12px; color: var(--grey-500); margin-top: 8px; gap: 8px; }
+  .marks div { font-family: var(--mono); }
+  .marks div b { display: block; font-family: var(--font); font-weight: 600; color: var(--black); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  table.calc { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 4px; }
+  table.calc td { padding: 9px 0; border-bottom: 1px solid var(--grey-200); }
+  table.calc td:last-child { text-align: right; font-family: var(--mono); }
+  .compare { background: #FBF7EA; border: 1px solid #EADBA8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; margin-top: 16px; }
+  .compare b { font-family: var(--mono); }
+  .ontime-note { background: var(--grey-50); border: 1px solid var(--grey-200); border-radius: 10px; padding: 14px 16px; font-size: 14px; }
+  .disclaimer { font-size: 12px; color: var(--grey-500); line-height: 1.55; margin-top: 22px; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 99px; background: var(--gold); color: var(--black); margin-left: 8px; vertical-align: middle; }
+
+  @media (max-width: 640px) {
+    .grid, .seg { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .hero .value { font-size: 32px; }
+  }
+  @media print {
+    header .who button, .actions, #calcCard { display: none !important; }
+    body { background: var(--white); }
+    .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">
+      <div class="brand-mark">FC</div>
+      <div>Far Capital<small>LAD Calculator</small></div>
+    </div>
+    <div class="who hidden" id="who">
+      <span id="whoText"></span><button type="button" id="signOut">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Sign in -->
+  <section id="signinView">
+    <h1>Check your LAD for late vacant possession</h1>
+    <p class="lede">Liquidated Ascertained Damages (LAD) is the compensation a developer owes you when your unit is handed over late. Sign in with your details to start.</p>
+    <form class="card" id="signinForm" novalidate>
+      <h2>Your details</h2>
+      <div class="grid">
+        <div>
+          <label for="clientId">Client ID</label>
+          <input type="text" id="clientId" autocomplete="off" placeholder="e.g. FC00123">
+        </div>
+        <div>
+          <label for="clientName">Full name</label>
+          <input type="text" id="clientName" autocomplete="name" placeholder="As per IC">
+        </div>
+        <div>
+          <label for="email">Email</label>
+          <input type="email" id="email" autocomplete="email" placeholder="name@example.com">
+        </div>
+        <div>
+          <label for="phone">Phone number</label>
+          <input type="tel" id="phone" autocomplete="tel" placeholder="e.g. 012 345 6789">
+        </div>
+        <div class="full">
+          <label class="check">
+            <input type="checkbox" id="consent">
+            <span>I agree that Far Capital Sdn Bhd may collect and keep my Client ID, name, email, phone number and the figures I enter, to contact me about my property and LAD claim, in line with the Personal Data Protection Act 2010.</span>
+          </label>
+        </div>
+      </div>
+      <div class="error" id="signinError"></div>
+      <div class="actions"><button class="btn" type="submit">Continue</button></div>
+    </form>
+  </section>
+
+  <!-- Calculator -->
+  <section id="calcView" class="hidden">
+    <h1>LAD calculator</h1>
+    <p class="lede">Enter your unit details. If your unit has not been handed over yet, leave the vacant possession date empty and we will calculate up to today.</p>
+
+    <form class="card" id="calcCard" novalidate>
+      <h2>Unit details</h2>
+      <div class="grid">
+        <div class="full">
+          <label for="project">Project name and unit <span style="font-weight:400;color:var(--grey-500)">(optional)</span></label>
+          <input type="text" id="project" placeholder="e.g. Residensi Seri Mutiara, A-12-03">
+        </div>
+        <div class="full">
+          <label for="price">Purchase price (as stated in your SPA)</label>
+          <div class="money"><span>RM</span><input type="text" id="price" inputmode="decimal" placeholder="500,000"></div>
+          <div class="hint">Use the full SPA price, not the price after rebates or discounts.</div>
+        </div>
+        <div class="full">
+          <label>Property type</label>
+          <div class="seg">
+            <label><input type="radio" name="ptype" value="strata" checked><div><strong>Strata</strong><span>Condo, apartment, serviced residence. Handover within 36 months.</span></div></label>
+            <label><input type="radio" name="ptype" value="landed"><div><strong>Landed</strong><span>Terrace, semi D, bungalow with individual title. Handover within 24 months.</span></div></label>
+          </div>
+        </div>
+        <div>
+          <label for="bookingDate">Booking fee paid on</label>
+          <input type="date" id="bookingDate">
+          <div class="hint">The handover period starts from the date you paid the booking fee, not the SPA date.</div>
+        </div>
+        <div>
+          <label for="vpDate">Vacant possession received on</label>
+          <input type="date" id="vpDate">
+          <div class="hint">Leave empty if you have not received your keys yet.</div>
+        </div>
+        <div>
+          <label for="spaDate">SPA signed on <span style="font-weight:400;color:var(--grey-500)">(optional)</span></label>
+          <input type="date" id="spaDate">
+          <div class="hint">Only used to show how much more you are owed by counting from the booking fee date.</div>
+        </div>
+      </div>
+      <div class="error" id="calcError"></div>
+      <div class="actions"><button class="btn" type="submit">Calculate LAD</button></div>
+    </form>
+
+    <div id="results" class="hidden" style="margin-top:22px"></div>
+  </section>
+
+</main>
+
+<script>
+/* ===== CONFIG =====
+   Paste your Google Apps Script web app URL below (ends with /exec).
+   Leave empty to run without saving to Google Sheets. */
+const APPS_SCRIPT_URL = '';
+const LAD_RATE = 0.10;               // 10% per annum
+const PERIOD_MONTHS = { strata: 36, landed: 24 };
+
+/* ===== State ===== */
+let client = null;
+const STORE_KEY = 'fc_lad_client';
+function saveClient(c) { try { localStorage.setItem(STORE_KEY, JSON.stringify(c)); } catch (e) {} }
+function loadClient() { try { return JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { return null; } }
+function clearClient() { try { localStorage.removeItem(STORE_KEY); } catch (e) {} }
+
+/* ===== Helpers ===== */
+const $ = id => document.getElementById(id);
+const fmtRM = n => 'RM ' + n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtNum = n => n.toLocaleString('en-MY');
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtDate = d => d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+const iso = d => d.toISOString().slice(0, 10);
+
+function parseDate(v) {
+  if (!v) return null;
+  const [y, m, d] = v.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(Date.UTC(y, m - 1, d));
+}
+function todayUTC() {
+  const t = new Date();
+  return new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
+}
+function addMonths(d, months) {
+  const y = d.getUTCFullYear(), m = d.getUTCMonth() + months, day = d.getUTCDate();
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(day, lastDay)));
+}
+const daysBetween = (a, b) => Math.round((b - a) / 86400000);
+
+function computeLAD(price, startDate, months, endDate) {
+  const due = addMonths(startDate, months);
+  const daysLate = Math.max(0, daysBetween(due, endDate));
+  const daily = price * LAD_RATE / 365;
+  const total = price * LAD_RATE * daysLate / 365;
+  return { due, daysLate, daily, total };
+}
+
+function postToSheet(payload) {
+  if (!APPS_SCRIPT_URL) return;
+  try {
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+/* ===== Views ===== */
+function showCalc() {
+  $('signinView').classList.add('hidden');
+  $('calcView').classList.remove('hidden');
+  $('who').classList.remove('hidden');
+  $('whoText').textContent = client.name + ' · ' + client.clientId;
+}
+function showSignin() {
+  $('calcView').classList.add('hidden');
+  $('who').classList.add('hidden');
+  $('signinView').classList.remove('hidden');
+  $('results').classList.add('hidden');
+}
+
+/* ===== Sign in ===== */
+$('signinForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const clientId = $('clientId').value.trim();
+  const name = $('clientName').value.trim().replace(/\s+/g, ' ');
+  const email = $('email').value.trim();
+  const phone = $('phone').value.trim();
+  const err = $('signinError');
+  const digits = phone.replace(/\D/g, '');
+
+  if (!clientId) return err.textContent = 'Please enter your Client ID.';
+  if (name.length < 2) return err.textContent = 'Please enter your full name.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err.textContent = 'Please enter a valid email address.';
+  if (digits.length < 9 || digits.length > 13) return err.textContent = 'Please enter a valid phone number.';
+  if (!$('consent').checked) return err.textContent = 'Please tick the consent box to continue.';
+  err.textContent = '';
+
+  client = { clientId, name, email, phone };
+  saveClient(client);
+  postToSheet({ action: 'signin', clientId, name, email, phone, consent: true, userAgent: navigator.userAgent });
+  showCalc();
+});
+
+$('signOut').addEventListener('click', () => {
+  client = null; clearClient();
+  $('signinForm').reset();
+  showSignin();
+});
+
+/* ===== Price input formatting ===== */
+$('price').addEventListener('blur', () => {
+  const n = parseFloat($('price').value.replace(/[^0-9.]/g, ''));
+  if (!isNaN(n)) $('price').value = n.toLocaleString('en-MY', { maximumFractionDigits: 2 });
+});
+
+/* ===== Calculate ===== */
+$('calcCard').addEventListener('submit', e => {
+  e.preventDefault();
+  const err = $('calcError');
+  const price = parseFloat($('price').value.replace(/[^0-9.]/g, ''));
+  const ptype = document.querySelector('input[name=ptype]:checked').value;
+  const months = PERIOD_MONTHS[ptype];
+  const booking = parseDate($('bookingDate').value);
+  const vpInput = parseDate($('vpDate').value);
+  const spa = parseDate($('spaDate').value);
+  const today = todayUTC();
+  const end = vpInput || today;
+  const project = $('project').value.trim();
+
+  if (!price || price <= 0) return err.textContent = 'Please enter your purchase price.';
+  if (!booking) return err.textContent = 'Please enter the date you paid the booking fee.';
+  if (booking > today) return err.textContent = 'The booking fee date cannot be in the future.';
+  if (vpInput && vpInput < booking) return err.textContent = 'The vacant possession date cannot be before the booking fee date.';
+  if (vpInput && vpInput > today) return err.textContent = 'The vacant possession date cannot be in the future. Leave it empty if you have not received your keys.';
+  if (spa && spa < booking) return err.textContent = 'The SPA date is usually after the booking fee date. Please check it.';
+  err.textContent = '';
+
+  const r = computeLAD(price, booking, months, end);
+  const rSpa = spa ? computeLAD(price, spa, months, end) : null;
+  render({ price, ptype, months, booking, end, ongoing: !vpInput, spa, r, rSpa, project });
+
+  postToSheet({
+    action: 'calc',
+    clientId: client.clientId, name: client.name, email: client.email, phone: client.phone,
+    project, purchasePrice: price,
+    propertyType: ptype, periodMonths: months,
+    bookingDate: iso(booking), spaDate: spa ? iso(spa) : '',
+    vpDate: vpInput ? iso(vpInput) : '', vpReceived: !!vpInput,
+    dueDate: iso(r.due), daysLate: r.daysLate,
+    dailyLAD: Math.round(r.daily * 100) / 100,
+    totalLAD: Math.round(r.total * 100) / 100,
+    totalLADFromSPA: rSpa ? Math.round(rSpa.total * 100) / 100 : ''
+  });
+});
+
+function render(o) {
+  const { r, rSpa } = o;
+  const el = $('results');
+  const typeLabel = o.ptype === 'strata' ? 'Strata (36 months)' : 'Landed (24 months)';
+  const endLabel = o.ongoing ? 'Today' : 'Keys received';
+  let html = '';
+
+  if (r.daysLate === 0) {
+    const left = daysBetween(o.end, r.due);
+    html += `<div class="ontime-note"><strong>No LAD yet.</strong> ${
+      o.ongoing
+        ? `Your developer has until <b style="font-family:var(--mono)">${fmtDate(r.due)}</b> to hand over your unit (${fmtNum(left)} days from today). If it is late, LAD starts at <b style="font-family:var(--mono)">${fmtRM(r.daily)}</b> per day.`
+        : `Your unit was handed over on time. The deadline was ${fmtDate(r.due)}.`
+    }</div>`;
+  } else {
+    html += `<div class="hero">
+      <div class="label">${o.ongoing ? 'LAD owed so far' : 'Total LAD owed'}${o.ongoing ? '<span class="pill">Still growing</span>' : ''}</div>
+      <div class="value">${fmtRM(r.total)}</div>
+      <div class="sub">${fmtNum(r.daysLate)} days late${o.project ? ' · ' + escapeHtml(o.project) : ''}</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">Handover deadline</div><div class="v">${fmtDate(r.due)}</div></div>
+      <div class="stat"><div class="k">Days late</div><div class="v">${fmtNum(r.daysLate)}</div></div>
+      <div class="stat"><div class="k">LAD per day</div><div class="v">${fmtRM(r.daily)}</div></div>
+      <div class="stat"><div class="k">${o.ongoing ? 'Per month (30 days)' : 'Purchase price'}</div><div class="v">${o.ongoing ? fmtRM(r.daily * 30) : fmtRM(o.price)}</div></div>
+    </div>`;
+  }
+
+  // Timeline
+  const totalSpan = Math.max(1, daysBetween(o.booking, r.daysLate ? o.end : r.due));
+  const onPct = Math.min(100, daysBetween(o.booking, r.due) / totalSpan * 100);
+  html += `<div class="card timeline"><h2>Timeline</h2>
+    <div class="track"><div class="ontime" style="width:${onPct}%"></div>${r.daysLate ? `<div class="late" style="left:${onPct}%;width:${100 - onPct}%"></div>` : ''}</div>
+    <div class="marks">
+      <div><b>Booking fee</b>${fmtDate(o.booking)}</div>
+      <div style="text-align:center"><b>Deadline</b>${fmtDate(r.due)}</div>
+      ${r.daysLate ? `<div style="text-align:right"><b>${endLabel}</b>${fmtDate(o.end)}</div>` : ''}
+    </div>
+  </div>`;
+
+  // Breakdown
+  html += `<div class="card"><h2>How this is calculated</h2>
+    <table class="calc">
+      <tr><td>Purchase price</td><td>${fmtRM(o.price)}</td></tr>
+      <tr><td>LAD rate</td><td>10% per year</td></tr>
+      <tr><td>Property type</td><td>${typeLabel}</td></tr>
+      <tr><td>Handover deadline (booking fee date + ${o.months} months)</td><td>${fmtDate(r.due)}</td></tr>
+      <tr><td>Counted up to (${endLabel.toLowerCase()})</td><td>${fmtDate(o.end)}</td></tr>
+      <tr><td>Days late</td><td>${fmtNum(r.daysLate)}</td></tr>
+      <tr><td><strong>Total LAD</strong> = price × 10% × days late ÷ 365</td><td><strong>${fmtRM(r.total)}</strong></td></tr>
+    </table>`;
+
+  if (rSpa && r.total > rSpa.total) {
+    html += `<div class="compare">If the developer counts from your SPA date (${fmtDate(o.spa)}) instead, you would only get <b>${fmtRM(rSpa.total)}</b>. Counting from the booking fee date gives you <b>${fmtRM(r.total - rSpa.total)}</b> more. The Federal Court ruled in <em>PJD Regency Sdn Bhd v Tribunal Tuntutan Pembeli Rumah</em> (2021) that the period starts from the booking fee date.</div>`;
+  }
+  html += `<div class="actions"><button class="btn ghost" type="button" onclick="window.print()">Print or save as PDF</button></div>
+    <p class="disclaimer">This is an estimate for reference only and is not legal advice. It assumes a standard Schedule G or Schedule H sale and purchase agreement under the Housing Development (Control and Licensing) Regulations 1989. Your actual claim may differ depending on your SPA terms. Please speak to Far Capital or a lawyer before making a claim.</p>
+  </div>`;
+
+  el.innerHTML = html;
+  el.classList.remove('hidden');
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ===== Init ===== */
+client = loadClient();
+if (client && client.clientId && client.name) showCalc();
+</script>
+</body>
+</html>
